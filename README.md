@@ -12,45 +12,8 @@ https://mrnorman.github.io
 Author for DKRZ Levante: Jared Frazier, Leibniz Institute of Atmospheric
 Physics, https://jfdev001.github.io/
 
-# Table of Contents
-
-- [Introduction](#introduction)
-  * [Brief Description of the Code](#brief-description-of-the-code)
-- [Compiling and Running the Code](#compiling-and-running-the-code)
-  * [Software Dependencies](#software-dependencies)
-  * [Basic Setup](#basic-setup)
-  * [Directories and Compiling](#directories-and-compiling)
-  * [Building and Testing Workflow](#building-and-testing-workflow)
-  * [Altering the Code's Configurations](#altering-the-codes-configurations)
-  * [Running the Code](#running-the-code)
-  * [Viewing the Output](#viewing-the-output)
-- [Parallelization](#parallelization)
-  * [Indexing](#indexing)
-  * **[MPI Domain Decomposition](#mpi-domain-decomposition)**
-  * **[OpenMP CPU Threading](#openmp-cpu-threading)**
-  * **[OpenACC Accelerator Threading](#openacc-accelerator-threading)**
-  * **[C++ Performance Portability](#c-performance-portability)**
-- [Numerical Experiments](#numerical-experiments)
-  * [Rising Thermal](#rising-thermal)
-  * [Colliding Thermals](#colliding-thermals)
-  * [Mountain Gravity Waves](#mountain-gravity-waves)
-  * [Density Current](#density-current)
-  * [Injection](#injection)
-- [Physics, PDEs, and Numerical Approximations](#physics--pdes--and-numerical-approximations)
-  * [The 2-D Euler Equations](#the-2-d-euler-equations)
-  * [Maintaining Hydrostatic Balance](#maintaining-hydrostatic-balance)
-  * [Dimensional Splitting](#dimensional-splitting)
-  * [Finite-Volume Spatial Discretization](#finite-volume-spatial-discretization)
-  * [Runge-Kutta Time Integration](#runge-kutta-time-integration)
-  * [Hyper-viscosity](#hyper-viscosity)
-- [MiniWeather Model Scaling Details](#miniweather-model-scaling-details)
-- [Checking for Correctness](#checking-for-correctness)
-- [Further Resources](#further-resources)
-- [Common Problems](#common-problems)
-
-
 # Introduction
-There are four main directories in MiniWeather: (1) a Fortran source directory; (2) a C source directory; (3) a C++ source directory; and (4) a documentation directory. We here focus on Fortran, but also provide information for optional exploration.
+There are four main directories in MiniWeather: (1) a Fortran source directory; (2) a C source directory; (3) a C++ source directory; and (4) a documentation directory. We focus on MPI and Open MP in Fortran code, but you can find information on C and C++ and on OpenACC here: https://github.com/mrnorman/miniWeather
 
 ## Fluid State Variables
 
@@ -65,11 +28,11 @@ There are four main arrays used in this code: `state`, `state_tmp`, `flux`, and 
 * `flux`: This is fluid state at cell boundaries in the x- and z-directions, and the units and meanings are the same as for `state` and `state_tmp`. In the x-direction update, the values of `flux` at indices `i` and `i+1` represents the fluid state at the left- and right-hand boundaries of cell `i`. The indexing is analogous in the z-direction. The fluxes are used to exchange fluid properties with neighboring cells.
 * `tend`: This is the time tendency of the fluid state <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\partial\mathbf{q}/\partial&space;t" title="\large \partial\mathbf{q}/\partial t" />, where <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\mathbf{q}" title="\large \mathbf{q}" /> is the the state vector, and as the name suggests, it has the same meaning and units as state, except per unit time (appending <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{s}^{-1}" title="\large \text{s}^{-1}" /> to the units). In the Finite-Volume method, the time tendency of a cell is equivalent to the divergence of the flux across a cell.
 
-# Numerical Experiments
+## Numerical Experiments
 
 A number of numerical experiments are in the code for you to play around with. You can set these by changing the `data_spec_int` variable. 
 
-## Rising Thermal
+### Rising Thermal
 
 ```
 data_spec_int = DATA_SPEC_THERMAL
@@ -86,7 +49,7 @@ Potential Temperature after 1,000 seconds:
 
 <img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/thermal_pt_1000.png" width=400/>
 
-## Colliding Thermals
+### Colliding Thermals
 
 ```
 data_spec_int = DATA_SPEC_COLLISION
@@ -107,7 +70,7 @@ Potential Temperature after 700 seconds:
 
 <img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/collision_pt_0700.png" width=400/>
 
-## Mountain Gravity Waves
+### Mountain Gravity Waves
 
 ```
 data_spec_int = DATA_SPEC_MOUNTAIN
@@ -124,7 +87,7 @@ Potential Temperature after 1,300 seconds:
 
 <img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/mountain_pt_1300.png" width=400/>
 
-## Density Current
+### Density Current
 
 ```
 data_spec_int = DATA_SPEC_DENSITY_CURRENT
@@ -141,7 +104,7 @@ Potential Temperature after 600 seconds:
 
 <img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/density_current_pt_0600.png" width=400/>
 
-## Injection
+### Injection
 
 ```
 data_spec_int = DATA_SPEC_INJECTION
@@ -157,7 +120,6 @@ Potential Temperature after 300 seconds:
 Potential Temperature after 1,000 seconds:
 
 <img src="https://github.com/mrnorman/miniWeather/blob/main/documentation/images/injection_pt_1000.png" width=400/>
-
 
 # Compiling and Running the Code
 
@@ -216,7 +178,7 @@ git remote add upstream git@github.com:jfdev001/miniWeather.git
 git fetch upstream  # allows you to pull code from jfdev001 in the future
 ```
 
-## Directories and Compiling
+## Building the Code and Testing the Workflow
 
 There are four main directories in the mini app: (1) a Fortran source
 directory; (2) a C source directory; (3) a C++ source directory; and (4) a
@@ -229,8 +191,6 @@ different HPC systems and compiler setups. Those build scripts in the `c`
 and `cpp` directories will *not* work on Levante and will have to be modified
 if you wish to run those codes.
 
-## Building and Testing Workflow
-
 Note that you must source the cmake scripts in the `build/` directores because
 they do module loading and set a `TEST_MPI_COMMAND` environment variable
 because it will differ from machine to machine.
@@ -239,12 +199,12 @@ The first thing you should do is verify that you can compile and run
 `miniweather`:
 
 ```shell
-bash ${MINIWEATHER_DIR}/cmake_levante_test
+bash ${MINIWEATHER_DIR}/fortran/build/cmake_levante_test
 ```
 
-This generates a directory called `${MINIWEATHER_DIR}/build/build_output/test`
+This generates a directory called `${MINIWEATHER_DIR}/fortran/build/build_output/test`
 where all configuration (e.g., auto-generated Makefiles) and compilation
-artifacts (e.g., executable binaries like `serial`, `openmp`, and `mpi`).
+artifacts (e.g., executable binaries like `serial`, `openmp`, and `mpi`) are placed.
 
 You should *always* read the usage documentation for any script you run. For
 nearly every script provided, you can do the following to get usage
@@ -263,20 +223,18 @@ to Levante: (1) one just for looking at the uage documentation of scripts so
 that you know what the inputs and outputs are, and (2) one for actually
 launching scripts and/or editing files. If you are Linux or Mac, you can also
 launch multiple terminals and each of them can independently ssh to Levante.
-Levante also comes with `tmux` (terminal multiplexer) by default, so you could
-use that instead if you're already familiar.
 
-You can check to see what `cmake_levante_test` by typing
+You can check to see what `cmake_levante_test` is doing by typing
 
 ```shell
-bash ${MINIWEATHER_DIR}/cmake_levante_test -h
+bash ${MINIWEATHER_DIR}/fortran/build/cmake_levante_test -h
 ```
 
 Note that the `cmake_levante_test` simply wraps the
 `cmake_levante_config_and_build` script discussed in the following sections.
 
 In the real world, there may be limited or *no* documentation for software that
-you are using. Even worse, they're may be documentation but it could be *out of
+you are using. Even worse, there may be documentation but it could be *out of
 date*. This is almost worse than having no documentation because you might
 think the software is doing one thing while it is in reality doing something
 completely unexpected. You need to be prepared to *read* through code to
@@ -307,7 +265,7 @@ see
 
 ```shell
 # assuming in build/ dir
-bash ${MINIWEATHER_DIR}/cmake_levante_build_and_configure -h
+bash cmake_levante_config_and_build -h
 ```
 
 This script forwards arguments to two calls to `cmake` that configure and build
@@ -324,7 +282,7 @@ It's best if you keep `NX` exactly twice the value of `NZ` since the domain is
 
 The data specifications are `DATA_SPEC_COLLISION`, `DATA_SPEC_THERMAL`,
 `DATA_SPEC_MOUNTAIN`, `DATA_SPEC_DENSITY_CURRENT`, and `DATA_SPEC_INJECTION`,
-and each are described later on.
+as described above.
 
 ## Running the Code
 
@@ -359,7 +317,7 @@ bash ${MINIWEATHER_DIR}/fortran/scripts/templates/make_run_scripts -h
 This script can be used to generate Slurm scripts specific to your user for
 running `miniweather` simulations. These scripts are, by convention, written to
 `scripts/run` and are *not* tracked by `git`. If you wish to modify the
-`.gitignore` file and remove the line containing `*.run`, `git` will not track
+`.gitignore` file and remove the line containing `*.run`, `git` will track
 your generated run scripts. The run scripts will also be prefixed with the
 partition that you have requested. Different partitions on levante (e.g.,
 shared, compute, gpu) give the user differ compute resources. By default the
@@ -394,41 +352,9 @@ the Slurm scheduler to actually launch your job. You should always prototype
 any experiments or scripts that you write which involve Slurm such that they
 request a very short amount of time (i.e., less than 1 minute).
 
-## Running Performance Experiments
-
-You may want to evaluate how the performance of `miniweather` is affected by
-increasing the number of threads, increasing the number of MPI processes, or
-doing a combination of both. You can inspect a sample bash script that prepares
-and launches such experiments:
-
-```shell
-bash ${MINIWEATHER_DIR}/fortrna/scripts/scaling/launch_sample_scaling_experiments -h
-```
-
-You can use that script as a template for running your own experiments.
-
-## Visualizing Performance Results
-
-This will also depend heavily on the types of experiments that you wish to run,
-however, an example python code that can be launched by:
-
-```shell
-python ${MINIWEATHER_DIR}/fortran/scripts/viz/sample_scaling_results.py
-```
-
-That script has no `-h` option supported; however, at the top of the file
-is a small description of the contents of the script itself and what it's for.
-
-You copy/modify it to accomplish your plotting goals for your experiments.
-
-Below is an example output from the script:
-
-<img width="999" height="799" alt="miniweather_openmp" src="https://github.com/user-attachments/assets/5f2959bf-393a-4ae2-8008-67383dffcc01" />
-
-
 ## Viewing the Output
 
-The file I/O is done in the netCDF format: (https://www.unidata.ucar.edu/software/netcdf). To me, the easiest way to view the data is to use a tool called “ncview” (http://meteora.ucsd.edu/~pierce/ncview_home_page.html). To use it, you can simply type `ncview output.nc`, making sure you have X-forwarding enabled in your ssh session. Further, you can call `ncview -frames output.nc`, and it will dump out all of your frames in the native resolution you're viewing the data in, and you you can render a movie with tools like `ffmpeg`. 
+The file I/O is done in the netCDF format: (https://www.unidata.ucar.edu/software/netcdf). To me, the easiest way to view the data is to use a tool called “ncview” (http://meteora.ucsd.edu/~pierce/ncview_home_page.html). To use it, you can simply type `ncview output.nc`, making sure you have X-forwarding enabled in your ssh session. Further, you can call `ncview -frames output.nc`, and it will dump out all of your frames in the native resolution you're viewing the data in, and you can render a movie with tools like `ffmpeg`. 
 
 # Parallelization
 
@@ -446,17 +372,7 @@ For the C++ code, you will need to work with the initialization and File I/O cod
 
 The code makes room for so-called “halo” cells in the fluid state. This is a common practice in any algorithm that uses stencil-based reconstruction to estimate variation within a domain. In this code, there are `hs` halo cells on either side of each spatial dimension, and I pretty much hard-code `hs=2`.
 
-### Fortran
-
 In the Fortran code's fluid state (`state`), the x- and z-dimensions are dimensioned as multi-dimensional arrays that range from `1-hs:nx+hs`. In the x-direction, `1-hs:0` belong to the MPI task to the left, cells `1:nx` belong to the current MPI task, and `nx+1:nx+hs` belong to the MPI task to the right. In the z-dimension, `1-hs:0` are artificially set to mimic a solid wall boundary condition at the bottom, and `nz+1:nz+hs` are the same for the top boundary. The cell-interface fluxes (`flux`) are dimensioned as `1:nx+1` and `1:nz+1` in the x- and z-directions, and the cell average tendencies (`tend`) are dimensioned `1:nx` and `1:nz` in the x- and z-directions. The cell of index `i` will have left- and right-hand interface fluxes of index `i` and `i+1`, respectively, and it will be evolved by the tendency at index `i`. The analog of this is also true in the z-direction.
-
-### C
-
-In the C code, the fluid `state` array is dimensioned to size `nz+2*hs` and `nx+2*hs` in the x- and z-directions. In the x-direction, cells `0` to `hs-1` belong to the left MPI task, cells `hs` to `nx+hs-1` belong to the current MPI tasks, and cells `nx+hs` to `nx+2*hs-1` belong to the right MPI task. The z-direction's halo cells are used to mimic solid wall boundaries. The cell-interface fluxes (`flux`) are dimensioned as `nx+1` and `nz+1` in the x- and z-directions, and the cell average tendencies (`tend`) are dimensioned `nx` and `nz` in the x- and z-directions. The cell of index `i+hs` will have left- and right-hand interface fluxes of index `i` and `i+1`, respectively, and it will be evolved by the tendency at index `i`. The analog of this is also true in the z-direction.
-
-### C++
-
-The C++ indexing is the same as the C indexing, but instead of having to flatten array indices into a single dimension like the C code, multi-dimensional arrays are used with `()` indexing syntax and the right-most index varying the fastest.
 
 ## MPI Domain Decomposition
 
@@ -480,193 +396,9 @@ The second place is in the routine that sets the halo values in the x-direction.
 
 Once you complete this, the code will be fully parallelized in MPI. Both of the places you need to add code for MPI are marked in the serial code, and there are some extra hints in the `set_halo_values_x()` routine as well.
 
-## OpenMP CPU Threading
 
-For the OpenMP code, you basically need to decorate the loops with `omp parallel do` in Fortran or `omp parallel for` in C, and pay attention to any variables you need to make `private()` so that each thread has its own copy. Keep in mind that OpenMP works best on “outer” loops rather than “inner” loops. Also, for sake of performance, there are a couple of instances where it is wise to use the “collapse” clause because the outermost loop is not large enough to support the number of threads most CPUs have.
-
-In Fortran, you can parallelize three loops with the following directive:
-
-```fortran
-!$omp parallel do collapse(3)
-do ll = 1 , NUM_VARS
-  do k = 1 , nz
-    do i = 1 , nx
-      state_out(i,k,ll) = state_init(i,k,ll) + dt * tend(i,k,ll)
-    enddo
-  enddo
-enddo
-```
-
-This will collapse the three loops together (combining their parallelism) and then launch that parallelism among a number of CPU threads. In C / C++, it will be:
-
-```C++
-#pragma omp parallel for collapse(3)
-for (ll=0; ll<NUM_VARS; ll++) {
-  for (k=0; k<nz; k++) {
-    for (i=0; i<nx; i++) {
-      inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
-      indt = ll*nz*nx + k*nx + i;
-      state_out[inds] = state_init[inds] + dt * tend[indt];
-    }
-  }
-}
-```
-
-## OpenACC Accelerator Threading
-
-To thread the same loops among the threads on a GPU, you will use the following in Fortran:
-
-```fortran
-!$acc parallel loop collapse(3)
-do ll = 1 , NUM_VARS
-  do k = 1 , nz
-    do i = 1 , nx
-      state_out(i,k,ll) = state_init(i,k,ll) + dt * tend(i,k,ll)
-    enddo
-  enddo
-enddo
-```
-
-In C / C++, it will be:
-
-```C++
-#pragma acc parallel loop collapse(3)
-for (ll=0; ll<NUM_VARS; ll++) {
-  for (k=0; k<nz; k++) {
-    for (i=0; i<nx; i++) {
-      inds = ll*(nz+2*hs)*(nx+2*hs) + (k+hs)*(nx+2*hs) + i+hs;
-      indt = ll*nz*nx + k*nx + i;
-      state_out[inds] = state_init[inds] + dt * tend[indt];
-    }
-  }
-}
-```
-
-The OpenACC approach will differ depending on whether you're in Fortran or C. Just a forewarning, OpenACC is much more convenient in Fortran when it comes to data movement because in Fortran, the compiler knows how big your arrays are, and therefore the compiler can (and does) create all of the data movement for you (NOTE: This is true for PGI and Cray but not for GNU at the moment). All you have to do is optimize the data movement after the fact. for more information about the OpenACC copy directives, see:
-
-https://github.com/mrnorman/miniWeather/wiki/A-Practical-Introduction-to-GPU-Refactoring-in-Fortran-with-Directives-for-Climate#optimizing--managing-data-movement
-
-### Fortran Code
-
-The OpenACC parallelization is a bit more involved when it comes to performance. But, it's a good idea to just start with the kernels themselves, since the compiler will generate all of your data statements for you on a per-kernel basis. You need to pay attention to private variables here as well. Only arrays need to be privatized. Scalars are automatically privatized for you.
-
-Once you're getting the right answer with the kernels on the GPU, you can look at optimizing data movement by putting in data statements. I recommend putting data statements for the `state`, `tend`, `flux`, `hy_*`, and the MPI buffers (`sendbuf_l`, `sendbuf_r`, `recvbuf_l`, and `recvbuf_r`) around the main time stepping loop. Then, you need to move the data to the host before sending MPI data, back to the device once you receive MPI data, and to the host before file I/O.
-
-### C Code
-
-In the C code, you'll need to put in manual `copy()`, `copyin()`, and `copyout()` statements on a **per-kernel basis**, and you'll need to explicitly declare the size of each array as well.
-
-**IMPORTANT**: The syntax for data movement in C will seem odd to you. The syntax is:
-
-```C
-#pragma acc data copy( varname[ starting_index : size_of_transfer ] )
-```
-
-So, for instance, if you send a variable, `var`, of size `n` to the GPU, you will say, `#pragma acc data copyin(var[0:n])`. Many would expect it to look like an array slice (e.g., `(0:n-1)`), but it is not. 
-
-Other than this, the approach is the same as with the Fortran case.
-
-## C++ Performance Portability
-
-The C++ code is in the `cpp` directory, and it uses a custom multi-dimensional `Array` class from `Array.h` for large global variables and Static Array (`SArray`) class in `SArray.h` for small local arrays placed on the stack. For adding MPI to the serial code, please follow the instructions in the above MPI section. The primary purpose of the C++ code is to get used to what performance portability looks like in C++, and this is moving from the `miniWeather_mpi.cpp` code to the `miniWeather_mpi_parallelfor.cpp` code, where you change all of the loops into `parallel_for` kernel launches, similar to the [Kokkos](https://github.com/kokkos/kokkos) syntax. As an example of transforming a set of loops into `parallel_for`, consider the following code:
-
-```C++
-inline void applyTendencies(realArr &state2, real const c0, realArr const &state0,
-                                             real const c1, realArr const &state1,
-                                             real const ct, realArr const &tend,
-                                             Domain const &dom) {
-  for (int l=0; l<numState; l++) {
-    for (int k=0; k<dom.nz; k++) {
-      for (int j=0; j<dom.ny; j++) {
-        for (int i=0; i<dom.nx; i++) {
-          state2(l,hs+k,hs+j,hs+i) = c0 * state0(l,hs+k,hs+j,hs+i) +
-                                     c1 * state1(l,hs+k,hs+j,hs+i) +
-                                     ct * dom.dt * tend(l,k,j,i);
-        }
-      }
-    }
-  }
-}
-```
-
-will become:
-
-```C++
-inline void applyTendencies(realArr &state2, real const c0, realArr const &state0,
-                                             real const c1, realArr const &state1,
-                                             real const ct, realArr const &tend,
-                                             Domain const &dom) {
-  // for (int l=0; l<numState; l++) {
-  //   for (int k=0; k<dom.nz; k++) {
-  //     for (int j=0; j<dom.ny; j++) {
-  //       for (int i=0; i<dom.nx; i++) {
-  yakl::parallel_for( Bounds<4>(numState,dom.nz,dom.ny,dom.nx) , YAKL_LAMBDA (int l, int k, int j, int i) {
-    state2(l,hs+k,hs+j,hs+i) = c0 * state0(l,hs+k,hs+j,hs+i) +
-                               c1 * state1(l,hs+k,hs+j,hs+i) +
-                               ct * dom.dt * tend(l,k,j,i);
-  }); 
-}
-```
-
-
-For a fuller description of how to move loops to parallel_for, please see the following webpage:
-
-https://github.com/mrnorman/YAKL/wiki/CPlusPlus-Performance-Portability-For-OpenACC-and-OpenMP-Folks
-
-https://github.com/mrnorman/YAKL
-
-I strongly recommend moving to `parallel_for` while compiling for the **CPU** so you don't have to worry about separate memory address spaces at the same time. Be sure to use array bounds checking during this process to ensure you don't mess up the indexing in the `parallel_for` launch. You can do this by adding `-DARRAY_DEBUG` to the `CXX_FLAGS` in your `Makefile`. After you've transformed all of the for loops to `parallel_for`, you can deal with the complications of separate memory spaces.
-
-### GPU Modifications
-
-First, you'll have to pay attention to asynchronicity. `parallel_for` is asynchronous, and therefore, you'll need to add `yakl::fence()` in two places: (1) MPI ; and (2) File I/O.
-
-Next, if a `parallel_for`'s kernel uses variables with global scope, which it will in this code, you will get a runtime error when running on the GPU. C++ Lambdas do not capture variables with global scope, and therefore, you'll be using CPU copies of that data, which isn't accessible from the GPU. The most convenient way to handle this is to create local references as follows:
-
-```C++
-auto &varName = ::varName;
-```
-
-The `::varName` syntax is telling the compiler to look in the global context for `varName` rather than the local context.
-
-This process will be tedious, but it is something you nearly always have to do in C++ performance portability approaches. So it's good to get used to doing it. You will run into similar issues if you attempt to __use data from your own class__ because the `this` pointer is typically into CPU memory because class objects are often allocated on the CPU. This can also be circumvented via local references in the same manner as above.
-
-You have to put `YAKL_INLINE` in front of the following functions because they are called from kernels: `injection`, `density_current`, `turbulence`, `mountain_waves`, `thermal`, `collision`, `hydro_const_bvfreq`, `hydro_const_theta`, and `sample_ellipse_cosine`.
-
-Next, you'll need to create new send and recv MPI buffers that are created in CPU memory to easily interoperate with the MPI library. To do this, you'll use the `realArrHost` `typedef` in `const.h`.
-
-```C++
-realArrHost sendbuf_l_cpu;
-realArrHost sendbuf_r_cpu;
-realArrHost recvbuf_l_cpu;
-realArrHost recvbuf_r_cpu;
-```
-
-You'll also need to replace the buffers in `MPI_Isend()` and `MPI_Irecv()` with the CPU versions. 
-
-Next, you need to allocate these in `init()` in a similar manner as the existing MPI buffers, but replacing `realArr` with `realArrHost`. 
-
-Finally, you'll need to manage data movement to and from the CPU in the File I/O and in the MPI message exchanges.
-
-For the File I/O, you can use `Array::createHostCopy()` in the `ncmpi_put_*` routines, and you can use it in-place before the `.data()` function calls, e.g.,
-
-```C++
-arrName.createHostCopy().data()
-```
-
-For the MPI buffers, you'll need to use the `Array::deep_copy_to(Array &target)` member function. e.g.,
-
-```C++
-sendbuf_l.deep_copy_to(sendbuf_l_cpu);
-```
-
-A deep copy from a device Array to a host Array will invoke `cudaMemcopy(...,cudaMemcpyDeviceToHost)`, and a deep copy from a host Array to a device Array will invoke `cudaMemcpy(...,cudaMemcpyHostToDevice)` under the hood. You will need to copy the send buffers from device to host just before calling `MPI_Isend()`, and you will need to copy the recv buffers from host to device just after `MPI_WaitAll()` on the receive requests, `req_r`. 
-
-
-
-
-
-# MiniWeather Model Scaling Details
+# MiniWeather Model Scaling
+## Details to Consider
 
 If you want to do scaling studies with miniWeather, this section will be important to make sure you're doing an apples-to-apples comparison.
 
@@ -685,6 +417,7 @@ doing a combination of both. You can inspect a sample bash script that prepares
 and launches such experiments:
 
 ```shell
+# assuming in the fortran/ directory
 ./scripts/scaling/launch_sample_scaling_experiments -h
 ```
 
@@ -696,6 +429,7 @@ This will also depend heavily on the types of experiments that you wish to run,
 however, an example python code that can be launched by:
 
 ```shell
+# assuming in the fortran/ directory
 python scripts/viz/sample_scaling_results.py
 ```
 
@@ -708,19 +442,5 @@ Below is an example output from the script:
 
 <img width="999" height="799" alt="miniweather_openmp" src="https://github.com/user-attachments/assets/5f2959bf-393a-4ae2-8008-67383dffcc01" />
 
-# Further Resources
 
-* Directives-Based Approaches
-  * https://github.com/mrnorman/miniWeather/wiki/A-Practical-Introduction-to-GPU-Refactoring-in-Fortran-with-Directives-for-Climate
-  * https://www.openacc.org 
-  * https://www.openacc.org/sites/default/files/inline-files/OpenACC%20API%202.6%20Reference%20Guide.pdf
-  * https://www.openmp.org
-  * https://www.openmp.org/wp-content/uploads/OpenMP-4.5-1115-CPP-web.pdf
-  * https://devblogs.nvidia.com/getting-started-openacc
-* C++
-  * https://github.com/kokkos/kokkos/wiki
-  * https://raja.readthedocs.io/en/main
-  * https://rocm-documentation.readthedocs.io/en/latest/Programming_Guides/Programming-Guides.html#hc-programming-guide
-  * https://www.khronos.org/files/sycl/sycl-121-reference-card.pdf
-  * https://github.com/mrnorman/YAKL/wiki
 
