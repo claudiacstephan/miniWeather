@@ -137,7 +137,7 @@ fi
 # compute number of mpi processes available based on the number of threads
 mpi_procs_pernode=$(( LOGICAL_CPUS_PER_NODE * 1 / OMP_NUM_THREADS ))
 
-# guard against case where LOGICAL_CPUS_PER_NODE=1 but OMP_NUM_THREADS > 1
+# guard against case where LOGICAL_CPUS_PER_NODE < OMP_NUM_THREADS
 if [[ ${mpi_procs_pernode} -eq 0 ]]
 then
     mpi_procs_pernode=1
