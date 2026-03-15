@@ -26,34 +26,16 @@ Physics, https://jfdev001.github.io/
   * [Software Dependencies](#software-dependencies)
   * [Basic Setup](#basic-setup)
   * [Building the Code and Testing the Workflow](#building-the-code-and-testing-the-workflow)
-  * 
   * [Altering the Code's Configurations](#altering-the-codes-configurations)
   * [Running the Code](#running-the-code)
   * [Viewing the Output](#viewing-the-output)
 - [Parallelization](#parallelization)
- * [Indexing](#indexing)
-  * **[MPI Domain Decomposition](#mpi-domain-decomposition)**
-  * **[OpenMP CPU Threading](#openmp-cpu-threading)**
-  * **[OpenACC Accelerator Threading](#openacc-accelerator-threading)**
-  * **[OpenMP Offload Accelerator Threading](#openmp-offload-accelerator-threading)**
-  * **[C++ Performance Portability](#c-performance-portability)**
-- [Numerical Experiments](#numerical-experiments)
-  * [Rising Thermal](#rising-thermal)
-  * [Colliding Thermals](#colliding-thermals)
-  * [Mountain Gravity Waves](#mountain-gravity-waves)
-  * [Density Current](#density-current)
-  * [Injection](#injection)
-- [Physics, PDEs, and Numerical Approximations](#physics--pdes--and-numerical-approximations)
-  * [The 2-D Euler Equations](#the-2-d-euler-equations)
-  * [Maintaining Hydrostatic Balance](#maintaining-hydrostatic-balance)
-  * [Dimensional Splitting](#dimensional-splitting)
-  * [Finite-Volume Spatial Discretization](#finite-volume-spatial-discretization)
-  * [Runge-Kutta Time Integration](#runge-kutta-time-integration)
-  * [Hyper-viscosity](#hyper-viscosity)
-- [MiniWeather Model Scaling Details](#miniweather-model-scaling-details)
-- [Checking for Correctness](#checking-for-correctness)
-- [Further Resources](#further-resources)
-- [Common Problems](#common-problems)
+  * [Indexing](#indexing)
+  * [MPI Domain Decomposition](#mpi-domain-decomposition)
+  * [miniWeather Model Scaling](#miniweather-model-scaling)
+    * **[Details to Consider](#details-to-consider)**
+    * **[Running Performance Experiments](#running-performance-experiments)**
+    * **[Visualizing Performance Results](#visualizing-performance-results)**
 
 
 # Introduction
@@ -66,7 +48,7 @@ There are four main arrays used in this code: `state`, `state_tmp`, `flux`, and 
 * `state`: This is the fluid state at the current time step, and it is the only array that persists from one time step to the next. The other four are only used within the calculations to advance the model to the next time step. The fluid state describes the average state over each cell area in the spatial domain. This variable contains four fluid states, which are the traditional mass, momenta, and thermodynamic quantities of most fluid models:
   1. Density (`ID_DENS`): The 2-D density of the fluid, <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\rho" title="\large \rho" />, in <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{kg}\&space;\text{m}^{-2}" title="\large \text{kg}\ \text{m}^{-2}" /> (note this is normally <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{kg}\&space;\text{m}^{-3}" title="\large \text{kg}\ \text{m}^{-3}" />, but this is a 2-D model, not 3-D)
   2. U-momentum (`ID_UMOM`): The momentum per unit area of the fluid in the x-direction calculated as <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\rho&space;u" title="\large \rho u" />, where u is the x-direction wind velocity. The units are <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{kg}\&space;\text{m}^{-1}\&space;\text{s}^{-1}" title="\large \text{kg}\ \text{m}^{-1}\ \text{s}^{-1}" />. Note that to get true momentum, you must integrate over the cell.
-  2. W-momentum (`ID_WMOM`): The momentum per unit area of the fluid in the z-direction calculated as <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\rho&space;w" title="\large \rho w" />, where w is the z-direction wind velocity. The units are <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{kg}\&space;\text{m}^{-1}\&space;\text{s}^{-1}" title="\large \text{kg}\ \text{m}^{-1}\ \text{s}^{-1}" />. Note that to get true momentum, you must integrate over the cell.
+  3. W-momentum (`ID_WMOM`): The momentum per unit area of the fluid in the z-direction calculated as <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\rho&space;w" title="\large \rho w" />, where w is the z-direction wind velocity. The units are <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{kg}\&space;\text{m}^{-1}\&space;\text{s}^{-1}" title="\large \text{kg}\ \text{m}^{-1}\ \text{s}^{-1}" />. Note that to get true momentum, you must integrate over the cell.
   4. Potential Temperature (`ID_RHOT`): The product of density and potential temperature, <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\rho&space;\theta" title="\large \rho \theta" />, where <img src="https://latex.codecogs.com/svg.latex?\theta=T\left(P_{0}/P\right)^{R_{d}/c_{p}}" /> , <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;P_{0}=10^{5}\,\text{Pa}" title="\large P_{0}=10^{5}\,\text{Pa}" />, T is the true temperature, and <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;R_d" title="\large R_d" /> and <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;c_p" title="\large c_p" /> are the dry air constant and specific heat at constant pressure for dry air, respectively. The units of this quantity are <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{K}\,\text{kg}\,\text{m}^{-2}" title="\large \text{K}\,\text{kg}\,\text{m}^{-2}" />.
 * `state_tmp`: This is a temporary copy of the fluid state used in the Runge-Kutta integration to keep from overwriting the state at the beginning of the time step, and it has the same units and meaning.
 * `flux`: This is the fluid state at cell boundaries in the x- and z-directions, and the units and meanings are the same as for `state` and `state_tmp`. In the x-direction update, the values of `flux` at indices `i` and `i+1` represent the fluid state at the left- and right-hand boundaries of cell `i`, respectively. The indexing is analogous in the z-direction. The fluxes are used to exchange fluid properties with neighboring cells.
@@ -343,11 +325,11 @@ request a very short amount of time (i.e., less than 1 minute).
 
 ## Viewing the Output
 
-The file I/O is done in the netCDF format: (https://www.unidata.ucar.edu/software/netcdf). To me, the easiest way to view the data is to use a tool called “ncview” (http://meteora.ucsd.edu/~pierce/ncview_home_page.html). To use it, you can simply type `ncview output.nc`, making sure you have X-forwarding enabled in your ssh session. Further, you can call `ncview -frames output.nc`, and it will dump out all of your frames in the native resolution you're viewing the data in, and you can render a movie with tools like `ffmpeg`. 
+The file I/O is done in the netCDF format: (https://www.unidata.ucar.edu/software/netcdf). An way to view the data is using “ncview” (http://meteora.ucsd.edu/~pierce/ncview_home_page.html). Simply type `ncview output.nc`, making sure you have X-forwarding enabled in your ssh session.
 
 # Parallelization
 
-The code is decomposed in two spatial dimensions, x and z, with `nx_glob` and `nz_glob` cells in the global domain and nx and nz cells in the local domain, using straightforward domain decomposition for MPI-level parallelization. The global domain is of size xlen and zlen meters, and hs “halo” cells are appended to both sides of each dimension.
+The code is decomposed in two spatial dimensions, x and z, with `nx_glob` and `nz_glob` cells in the global domain and `nx` and `nz` cells in the local domain, using straightforward domain decomposition for MPI-level parallelization. The global domain is of size `xlen` and `zlen` meters, and has `hs` “halo” cells appended to both sides of each dimension.
 
 This code was designed to parallelize with MPI first and then OpenMP, OpenACC or other approaches next, but you can always parallelize with OpenMP or OpenACC without MPI if you want. 
 
@@ -384,19 +366,19 @@ The second place is in the routine that sets the halo values in the x-direction.
 Once you complete this, the code will be fully parallelized in MPI. Both of the places you need to add code for MPI are marked in the serial code, and there are some extra hints in the `set_halo_values_x()` routine as well.
 
 
-# MiniWeather Model Scaling
-## Details to Consider
+## miniWeather Model Scaling
+### Details to Consider
 
 If you want to do scaling studies with miniWeather, this section will be important to make sure you're doing an apples-to-apples comparison.
 
 * `sim_time`: The `sim_time` parameter does not mean the wall time it takes to simulate but rather refers to the amount of model time simulated. As you increase `sim_time`, you should expect the walltime to increase linearly.
 * `nx_glob, nz_glob`: As a rule, it's easiest if you always keep `nx_glob = nz_glob * 2` since the domain is always 20km x 10km in the x- and z-directions. As you increase `nx_glob` (and proportionally `nz_glob`) by some factor `f`, the time step is automatically reduced by that same factor, `f`. Therefore, increasing `nx_glob` by 2x leads to 8x more work that needs to be done. Thus, with the same amount of parallelism, you should expect a 2x increase in `nx_glob` and `nz_glob` to increase the walltime by 8x (neglecting parallel overhead concerns).
   * More precisely, the time step is proportional to the minimum grid spacing. The x- and y-direction grid spacings are: `dx=20km/nx_glob` and `dz=10km/nz_glob`. So as you decrease the minimum grid spacing (by increasing `nx_glob` and/or `nz_glob`), you proportionally decrease the size of the time step and therefore proportionally increase the number of time steps you need to complete the simulation (thus proportionally increasing the expected walltime).
-* The larger the problem size, `nx_glob` and `nz_glob`, the lower the relative parallel overheads will be. You can get to a point where there isn't enough work on the accelerator to keep it busy and / or enough local work to amortize parallel overheads. At this point, you'll need to increase the problem size to see better scaling. This is a typical [Amdahl's Law] situation.
+* The larger the problem size, `nx_glob` and `nz_glob`, the lower the relative parallel overheads will be. You can get to a point where there isn't enough work on the accelerator to keep it busy and / or enough local work to amortize parallel overheads. At this point, you'll need to increase the problem size to see better scaling. This is a typical Amdahl's Law situation.
 
 Remember that you can control each of these parameters through the CMake configure.
 
-## Running Performance Experiments
+### Running Performance Experiments
 
 You may want to evaluate how the performance of `miniweather` is affected by
 increasing the number of threads, increasing the number of MPI processes, or
@@ -410,7 +392,7 @@ and launches such experiments:
 
 You can use that script as a template for running your own experiments.
 
-## Visualizing Performance Results
+### Visualizing Performance Results
 
 This will also depend heavily on the types of experiments that you wish to run,
 however, an example python code that can be launched by:
