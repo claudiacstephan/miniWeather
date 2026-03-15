@@ -285,8 +285,7 @@ see
 bash cmake_levante_config_and_build -h
 ```
 
-This script forwards arguments to two calls to `cmake` that configure and build
-the script. The generated `cmake` configuration call might look like the below:
+This script forwards arguments to `cmake`. The generated `cmake` configuration call might look like the below:
 
 * `-DNX=400`: Uses 400 cells in the x-direction
 * `-DNZ=200`: Uses 200 cells in the z-direction
@@ -303,57 +302,30 @@ as described above.
 
 ## Running the Code
 
-It is recommended to run the `build_output/test/serial_test` code first to get
-an idea for the model outputs. Note that a file `output.nc` is always produced 
-in the directory from which you call the `miniWeather` executables.
+Since you are using a compute cluster shared by many people,
+jobs should be submitted to the Slurm scheduler.
 
-As an example:
-
-```shell
-# assuming in fortran/ directory... this produces `output.nc` there
-cd ${MINIWEATHER_DIR}/fortran
-./build/build_output/test/serial_test
-```
-
-Since parameters are set in the code itself, you don't need to pass any
-parameters to the executables.
-
-This is fine for testing lightweight serial codes; however, we are interested
-in parallel codes. Since you are using a compute cluster shared by many people,
-jobs requiring more computational resources must be submitted to the Slurm
-scheduler.
-
-We provide a script that wraps the generation of a run script which you can
-use later for running simulations. You can check out the parameters for this
-script here:
-
-```shell
-bash ${MINIWEATHER_DIR}/fortran/scripts/templates/make_run_scripts -h
-```
-
-This script can be used to generate Slurm scripts specific to your user for
-running `miniWeather` simulations. These scripts are, by convention, written to
-`scripts/run` and are *not* tracked by `git`. If you wish to modify the
-`.gitignore` file and remove the line containing `*.run`, `git` will track
-your generated run scripts. The run scripts will also be prefixed with the
-partition that you have requested. Different partitions on levante (e.g.,
-shared, compute, gpu) give the user differ compute resources. By default the
-compute partition is used, and this will work with MPI and OpenMP jobs.
-
-You should generate an example run script with the following:
-
+We provide a script that can be used to generate Slurm scripts specific to your user for
+running `miniWeather` simulations. 
+You can generate an example run script with the following:
 ```shell
 EMAIL_HERE="put_your_email@gmail.com"
 bash ${MINIWEATHER_DIR}/fortran/scripts/templates/make_run_scripts ${EMAIL_HERE}
 ```
+These scripts are, by convention, written to `scripts/run`.
 
-This generates `scripts/run/compute_miniweather.run`. You should inspect what
-this script does with
+(Side note: The scripts are *not* tracked by `git`. If you wish to track them you need to
+remove the line containing `*.run`, from `.gitignore`. )
+
+This generates `scripts/run/compute_miniweather.run`. 
+
+The prefix compute is for the compute partition of Levante (default). 
+
+To see what the script does:
 
 ```shell
 bash ${MINIWEATHER_DIR}/fortran/scripts/run/compute_miniweather.run -h
 ```
-
 In particular, you should run each of the `bash` examples in the usage doc to
 get an understanding of what *would* be submitted to Slurm. There are lots of
 outputs so make sure to read and understand them. When ready to submit jobs to
@@ -362,7 +334,7 @@ Slurm, look at the `sbatch` examples in the same usage doc.
 Note that the `time` sbatch directive is set to 30 seconds. This is sufficient
 for running tests, but may not be sufficient for running larger scale
 simulations. If your simulation significantly exceeds the amount of time
-allocated by the `time` directive, the simulation will timeout and you the
+allocated by the `time` directive, the simulation will timeout and the
 outputs to `output.nc` may be incomplete. Be aware that increasing the amount
 of time you would like to run your job may result in you waiting longer for
 the Slurm scheduler to actually launch your job. You should always prototype
