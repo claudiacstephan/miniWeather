@@ -1,8 +1,8 @@
-# The MiniWeather App
+# The miniWeather App
 
-It is a miniature fluid-dynamics code solving the 2-D inviscid Euler equations for stratified fluids. The dynamics themselves are dry compressible, stratified, non-hydrostatic flows dominated by buoyant forces that are relatively small perturbations on a hydrostatic background state. The code uses periodic boundary conditions in the x-direction and solid wall boundary conditions in the z-direction. The MiniWeather App is designed for training in parallel HPC computing. Parallelization approaches currently include:
+It is a miniature fluid-dynamics code solving the 2-D inviscid Euler equations for stratified fluids. The dynamics themselves are dry compressible, stratified, non-hydrostatic flows dominated by buoyant forces that are relatively small perturbations on a hydrostatic background state. The code uses periodic boundary conditions in the x-direction and solid wall boundary conditions in the z-direction. The miniWeather App is designed for training in parallel HPC computing. Parallelization approaches currently include:
 
-* MPI (C, Fortran, and C++)
+* MPI (C, C++, and Fortran)
 * OpenMP Threading (C and Fortran)
 * OpenACC Offload (C and Fortran)
 
@@ -12,20 +12,64 @@ https://mrnorman.github.io
 Author for DKRZ Levante: Jared Frazier, Leibniz Institute of Atmospheric
 Physics, https://jfdev001.github.io/
 
+# Table of Contents
+
+- [Introduction](#introduction)
+  * [Fluid State Variables](#fluid-state-variables)
+  * [Numerical Experiments](#numerical-experiments)
+    * **[Rising Thermal](#rising-thermal)**
+    * **[Colliding Thermals](#colliding-thermals)**
+    * **[Mountain Gravity Waves](#mountain-gravity-waves)**
+    * **[Density Current](#density-current)**
+    * **[Injection](#injection)**
+- [Compiling and Running the Code](#compiling-and-running-the-code)
+  * [Software Dependencies](#software-dependencies)
+  * [Basic Setup](#basic-setup)
+  * [Building the Code and Testing the Workflow](#building-the-code-and-testing-the-workflow)
+  * 
+  * [Altering the Code's Configurations](#altering-the-codes-configurations)
+  * [Running the Code](#running-the-code)
+  * [Viewing the Output](#viewing-the-output)
+- [Parallelization](#parallelization)
+ * [Indexing](#indexing)
+  * **[MPI Domain Decomposition](#mpi-domain-decomposition)**
+  * **[OpenMP CPU Threading](#openmp-cpu-threading)**
+  * **[OpenACC Accelerator Threading](#openacc-accelerator-threading)**
+  * **[OpenMP Offload Accelerator Threading](#openmp-offload-accelerator-threading)**
+  * **[C++ Performance Portability](#c-performance-portability)**
+- [Numerical Experiments](#numerical-experiments)
+  * [Rising Thermal](#rising-thermal)
+  * [Colliding Thermals](#colliding-thermals)
+  * [Mountain Gravity Waves](#mountain-gravity-waves)
+  * [Density Current](#density-current)
+  * [Injection](#injection)
+- [Physics, PDEs, and Numerical Approximations](#physics--pdes--and-numerical-approximations)
+  * [The 2-D Euler Equations](#the-2-d-euler-equations)
+  * [Maintaining Hydrostatic Balance](#maintaining-hydrostatic-balance)
+  * [Dimensional Splitting](#dimensional-splitting)
+  * [Finite-Volume Spatial Discretization](#finite-volume-spatial-discretization)
+  * [Runge-Kutta Time Integration](#runge-kutta-time-integration)
+  * [Hyper-viscosity](#hyper-viscosity)
+- [MiniWeather Model Scaling Details](#miniweather-model-scaling-details)
+- [Checking for Correctness](#checking-for-correctness)
+- [Further Resources](#further-resources)
+- [Common Problems](#common-problems)
+
+
 # Introduction
-There are four main directories in MiniWeather: (1) a Fortran source directory; (2) a C source directory; (3) a C++ source directory; and (4) a documentation directory. We focus on MPI and Open MP in Fortran code, but you can find information on C and C++ and on OpenACC here: https://github.com/mrnorman/miniWeather
+There are four main directories in miniWeather: (1) a Fortran source directory; (2) a C source directory; (3) a C++ source directory; and (4) a documentation directory. We focus on MPI and Open MP in Fortran code, but you can find information on C and C++, and on OpenACC here: https://github.com/mrnorman/miniWeather
 
 ## Fluid State Variables
 
-There are four main arrays used in this code: `state`, `state_tmp`, `flux`, and `tend`, and the dimensions for each are given in the code upon declaration in the comments. Each of these arrays is described briefly below:
+There are four main arrays used in this code: `state`, `state_tmp`, `flux`, and `tend`. Each of these arrays is described briefly below:
 
 * `state`: This is the fluid state at the current time step, and it is the only array that persists from one time step to the next. The other four are only used within the calculations to advance the model to the next time step. The fluid state describes the average state over each cell area in the spatial domain. This variable contains four fluid states, which are the traditional mass, momenta, and thermodynamic quantities of most fluid models:
   1. Density (`ID_DENS`): The 2-D density of the fluid, <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\rho" title="\large \rho" />, in <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{kg}\&space;\text{m}^{-2}" title="\large \text{kg}\ \text{m}^{-2}" /> (note this is normally <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{kg}\&space;\text{m}^{-3}" title="\large \text{kg}\ \text{m}^{-3}" />, but this is a 2-D model, not 3-D)
   2. U-momentum (`ID_UMOM`): The momentum per unit area of the fluid in the x-direction calculated as <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\rho&space;u" title="\large \rho u" />, where u is the x-direction wind velocity. The units are <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{kg}\&space;\text{m}^{-1}\&space;\text{s}^{-1}" title="\large \text{kg}\ \text{m}^{-1}\ \text{s}^{-1}" />. Note that to get true momentum, you must integrate over the cell.
   2. W-momentum (`ID_WMOM`): The momentum per unit area of the fluid in the z-direction calculated as <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\rho&space;w" title="\large \rho w" />, where w is the z-direction wind velocity. The units are <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{kg}\&space;\text{m}^{-1}\&space;\text{s}^{-1}" title="\large \text{kg}\ \text{m}^{-1}\ \text{s}^{-1}" />. Note that to get true momentum, you must integrate over the cell.
-  4. Potential Temperature (`ID_RHOT`): The product of density and potential temperature, <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\rho&space;\theta" title="\large \rho \theta" />, where <img src="https://latex.codecogs.com/svg.latex?\theta=T\left(P_{0}/P\right)^{R_{d}/c_{p}}" /> , <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;P_{0}=10^{5}\,\text{Pa}" title="\large P_{0}=10^{5}\,\text{Pa}" />, T is the true temperature, and <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;R_d" title="\large R_d" /> and<img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;c_p" title="\large c_p" /> are the dry air constant and specific heat at constant pressure for dry air, respectively. The units of this quantity are <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{K}\,\text{kg}\,\text{m}^{-2}" title="\large \text{K}\,\text{kg}\,\text{m}^{-2}" />.
+  4. Potential Temperature (`ID_RHOT`): The product of density and potential temperature, <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\rho&space;\theta" title="\large \rho \theta" />, where <img src="https://latex.codecogs.com/svg.latex?\theta=T\left(P_{0}/P\right)^{R_{d}/c_{p}}" /> , <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;P_{0}=10^{5}\,\text{Pa}" title="\large P_{0}=10^{5}\,\text{Pa}" />, T is the true temperature, and <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;R_d" title="\large R_d" /> and <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;c_p" title="\large c_p" /> are the dry air constant and specific heat at constant pressure for dry air, respectively. The units of this quantity are <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{K}\,\text{kg}\,\text{m}^{-2}" title="\large \text{K}\,\text{kg}\,\text{m}^{-2}" />.
 * `state_tmp`: This is a temporary copy of the fluid state used in the Runge-Kutta integration to keep from overwriting the state at the beginning of the time step, and it has the same units and meaning.
-* `flux`: This is fluid state at cell boundaries in the x- and z-directions, and the units and meanings are the same as for `state` and `state_tmp`. In the x-direction update, the values of `flux` at indices `i` and `i+1` represents the fluid state at the left- and right-hand boundaries of cell `i`. The indexing is analogous in the z-direction. The fluxes are used to exchange fluid properties with neighboring cells.
+* `flux`: This is the fluid state at cell boundaries in the x- and z-directions, and the units and meanings are the same as for `state` and `state_tmp`. In the x-direction update, the values of `flux` at indices `i` and `i+1` represent the fluid state at the left- and right-hand boundaries of cell `i`, respectively. The indexing is analogous in the z-direction. The fluxes are used to exchange fluid properties with neighboring cells.
 * `tend`: This is the time tendency of the fluid state <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\partial\mathbf{q}/\partial&space;t" title="\large \partial\mathbf{q}/\partial t" />, where <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\mathbf{q}" title="\large \mathbf{q}" /> is the the state vector, and as the name suggests, it has the same meaning and units as state, except per unit time (appending <img src="https://latex.codecogs.com/svg.latex?\inline&space;\dpi{300}&space;\large&space;\text{s}^{-1}" title="\large \text{s}^{-1}" /> to the units). In the Finite-Volume method, the time tendency of a cell is equivalent to the divergence of the flux across a cell.
 
 ## Numerical Experiments
@@ -77,7 +121,7 @@ data_spec_int = DATA_SPEC_MOUNTAIN
 sim_time = 1500
 ```
 
-This test cases passes a horizontal wind over a faked mountain at the model bottom in a stable atmosphere to generate a train of stationary gravity waves across the model domain.
+This test case passes a horizontal wind over a faked mountain at the model bottom in a stable atmosphere to generate a train of stationary gravity waves across the model domain.
 
 Potential Temperature after 400 seconds:
 
@@ -94,7 +138,7 @@ data_spec_int = DATA_SPEC_DENSITY_CURRENT
 sim_time = 600
 ```
 
-This test case creates a neutrally stratified atmosphere with a strong cold bubble in the middle of the domain that crashes into the ground to give the feel of a weather front (more of a downburst, I suppose).
+This test case creates a neutrally stratified atmosphere with a strong cold bubble in the middle of the domain that crashes into the ground to give the feel of a downburst.
 
 Potential Temperature after 200 seconds:
 
@@ -137,66 +181,39 @@ Potential Temperature after 1,000 seconds:
 * CMake: https://cmake.org
 
 ## Basic Setup
-
-```shell
-cd /work/bm1233/${USER}  
-git clone git@github.com:jfdev001/miniWeather.git
-MINIWEATHER_DIR=$(pwd)/miniWeather
-cd ${MINIWEATHER_DIR}
-git submodule update --init --recursive
-```
-
-To find that repository on GitHub, go to  
-
 ```text
 https://github.com/jfdev001/miniWeather
 ```
-
-and star it so that you can easily find it later.
-
-If you prefer, you can fork (see [github docs: fork a
+Create your own fork (see [github docs: fork a
 repo](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo))
-that repo and then clone your own fork of `miniweather`. This is also a good
-approach since then you can upload (i.e., `git push`) your code to a repository
-on your GitHub. The workflow would look something like the following
+of that repo and then clone your own fork of `miniweather`. With this approach you can upload (i.e., `git push`) your code to your GitHub repository.
 
+On Levante:
 ```shell
 cd /work/bm1233/${USER}  
-# assuming you have forked miniweather
 git clone git@github.com:YOUR_GITHUB_USER_NAME_HERE/miniWeather.git 
 MINIWEATHER_DIR=$(pwd)/miniWeather
 cd ${MINIWEATHER_DIR}
 git submodule update --init --recursive
+```
 
-# by default, the remote origin (i.e., source of your code on GitHub
-# and its destination when pushing) is set to 
-# git@github.com:YOUR_GITHUB_USER_NAME_HERE/miniWeather.git ...
-# by adding another remote and calling it upstream, you can at any
-# time inspect or pull the code provided by jfdev001 without breaking
-# you local changes 
+The source of your code on GitHub (and its destination when pushing) is called remote origin in git terms. This is by default 
+```text
+git@github.com:YOUR_GITHUB_USER_NAME_HERE/miniWeather.git
+```
+If you need to inspect or pull code from jfdev001 you can do so without breaking your local changes by:
+
+```shell
 git remote add upstream git@github.com:jfdev001/miniWeather.git 
 git fetch upstream  # allows you to pull code from jfdev001 in the future
 ```
 
 ## Building the Code and Testing the Workflow
 
-There are four main directories in the mini app: (1) a Fortran source
-directory; (2) a C source directory; (3) a C++ source directory; and (4) a
-documentation directory. 
+`miniWeather` uses the [CMake](https://cmake.org/) build system. The build scripts in the `fortran` directory have been adapted for Levante, but those in the `c`
+and `cpp` directories have not and will *not* work on Levante. You would have to modify them if you wish to run those codes.
 
-`miniWeather` uses the [CMake](https://cmake.org/) build system. While the
-focus of this course is the code in the `fortran` directory, you may
-look at the `c` and `cpp` directories if you wish to find build scripts matching
-different HPC systems and compiler setups. Those build scripts in the `c`
-and `cpp` directories will *not* work on Levante and will have to be modified
-if you wish to run those codes.
-
-Note that you must source the cmake scripts in the `build/` directores because
-they do module loading and set a `TEST_MPI_COMMAND` environment variable
-because it will differ from machine to machine.
-
-The first thing you should do is verify that you can compile and run
-`miniweather`:
+The cmake files are located in `fortran/build/`. One of them can be executed as a simple check to see that you can compile and run `miniWeather`:
 
 ```shell
 bash ${MINIWEATHER_DIR}/fortran/build/cmake_levante_test
@@ -216,10 +233,10 @@ documentation
 ./<script_name> -h
 ```
 
-Pay close attention also to any examples section in usage documentation.
+Pay close attention also to the example section in usage documentation.
 
 If you are using MobaXTerm you should have two ssh sessions open and connected
-to Levante: (1) one just for looking at the uage documentation of scripts so
+to Levante: (1) one just for looking at the usage documentation of scripts so
 that you know what the inputs and outputs are, and (2) one for actually
 launching scripts and/or editing files. If you are Linux or Mac, you can also
 launch multiple terminals and each of them can independently ssh to Levante.
@@ -288,7 +305,7 @@ as described above.
 
 It is recommended to run the `build_output/test/serial_test` code first to get
 an idea for the model outputs. Note that a file `output.nc` is always produced 
-in the directory from which you call the `miniweather` executables.
+in the directory from which you call the `miniWeather` executables.
 
 As an example:
 
@@ -315,7 +332,7 @@ bash ${MINIWEATHER_DIR}/fortran/scripts/templates/make_run_scripts -h
 ```
 
 This script can be used to generate Slurm scripts specific to your user for
-running `miniweather` simulations. These scripts are, by convention, written to
+running `miniWeather` simulations. These scripts are, by convention, written to
 `scripts/run` and are *not* tracked by `git`. If you wish to modify the
 `.gitignore` file and remove the line containing `*.run`, `git` will track
 your generated run scripts. The run scripts will also be prefixed with the
