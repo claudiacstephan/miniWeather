@@ -394,15 +394,24 @@ You can use that script as a template for running your own experiments.
 
 ### Visualizing Performance Results
 
-This will also depend heavily on the types of experiments that you wish to run,
-however, an example python code that can be launched by:
+If you have not setup your Python environment, do the following:
+
+```shell
+cd ${MINIWEATHER_DIR}
+module load python3
+python -m venv .venv      # initialize the virtual environment 
+source .venv/bin/activate # activate the virtual environment
+[[ ! $(which pip) == *"venv"* ]] && echo "venv not activated, pip will install globally"
+pip install -r requirements.txt
+```
+
+There is an example python code that can be launched by:
 
 ```shell
 # assuming in the fortran/ directory
 python scripts/viz/sample_scaling_results.py
 ```
-
-That script has no `-h` option supported; however, at the top of the file
+Its usefulness depends heavily on the types of experiments that you wish to run. That script has no `-h` option supported; however, at the top of the file
 is a small description of the contents of the script itself and what it's for.
 
 You copy/modify it to accomplish your plotting goals for your experiments.
