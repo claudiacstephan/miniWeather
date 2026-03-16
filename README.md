@@ -412,13 +412,6 @@ There is an example python code that can be launched by:
 python scripts/viz/sample_scaling_results.py
 ```
 Its usefulness depends heavily on the types of experiments that you wish to run. That script has no `-h` option supported; however, at the top of the file
-is a small description of the contents of the script itself and what it's for.
-
-You copy/modify it to accomplish your plotting goals for your experiments.
-
-Below is an example output from the script:
-
-<img width="999" height="799" alt="miniweather_openmp" src="https://github.com/user-attachments/assets/5f2959bf-393a-4ae2-8008-67383dffcc01" />
-
+is a small description of the contents of the script itself and what it's for. You can modify it to accomplish your plotting goals for your experiments.
 
 
