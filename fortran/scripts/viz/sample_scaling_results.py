@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Plot sample scaling results from OpenMP miniweather simulations.
+"""Plot sample scaling results from OpenMP miniWeather simulations.
 
 Requires that `scripts/scaling/launch_sample_scaling_experiments` has
 been executed with the `--run` flag.
